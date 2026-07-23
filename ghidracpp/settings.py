@@ -1,0 +1,2 @@
+NAMESPACE_REWRITER = lambda x: x
+GLOBALS_DIR = ""

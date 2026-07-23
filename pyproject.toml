@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ghidracpp"
+dynamic = ["version"]
+dependencies = [
+  "pyghidra",
+  "ghidra-stubs==12.1.2"
+]
+requires-python = ">= 3.12"
+description = "Ghidra-cpp: a pyghidra script to export C++ code files from ghidra decompilations"
+license = "AGPL-3.0-or-later"
+
+[project.scripts]
+ghidra-cpp = "ghidracpp.main:main"
+
+[project.urls]
+Repository = "https://github.com/gynt/ghidra-cpp"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "ghidracpp/*.py",
+  "/tests",
+]
+
+[tool.hatch.version]
+path = "ghidracpp/__about__.py"
+
+[tool.setuptools.package-data]
+skink = ["*.yml"]

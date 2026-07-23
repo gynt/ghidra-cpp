@@ -1,0 +1,240 @@
+{
+  "cls": "ClangFunction",
+  "nodes": [
+    { "cls": "ClangSyntaxToken", "token": "" },
+    { "cls": "ClangBreak", "token": "" },
+    { "cls": "ClangCommentToken", "token": "/* " },
+    { "cls": "ClangSyntaxToken", "token": "" },
+    { "cls": "ClangCommentToken", "token": "decompilerscript:" },
+    { "cls": "ClangSyntaxToken", "token": " " },
+    { "cls": "ClangCommentToken", "token": "committed:" },
+    { "cls": "ClangSyntaxToken", "token": " " },
+    { "cls": "ClangCommentToken", "token": "2025-01-30" },
+    { "cls": "ClangSyntaxToken", "token": " " },
+    { "cls": "ClangCommentToken", "token": "21:57:43.216000" },
+    { "cls": "ClangSyntaxToken", "token": "" },
+    { "cls": "ClangCommentToken", "token": " */" },
+    { "cls": "ClangBreak", "token": "" },
+    { "cls": "ClangSyntaxToken", "token": "" },
+    { "cls": "ClangBreak", "token": "" },
+    {
+      "cls": "ClangFuncProto",
+      "nodes": [
+        {
+          "cls": "ClangReturnType",
+          "nodes": [
+            { "cls": "ClangTypeToken", "token": "void" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "" }
+          ]
+        },
+        { "cls": "ClangSyntaxToken", "token": " " },
+        { "cls": "ClangSyntaxToken", "token": "__thiscall" },
+        { "cls": "ClangSyntaxToken", "token": " " },
+        { "cls": "ClangSyntaxToken", "token": "_HoldStrong" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": "::" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": "AI" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": "::" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": "AICState" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": "::" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangFuncNameToken", "token": "abortAttackAndGoIdle" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": "(" },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        {
+          "cls": "ClangVariableDecl",
+          "nodes": [
+            { "cls": "ClangTypeToken", "token": "AICState" },
+            { "cls": "ClangSyntaxToken", "token": " " },
+            { "cls": "ClangOpToken", "token": "*" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "this" }
+          ]
+        },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": "," },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        {
+          "cls": "ClangVariableDecl",
+          "nodes": [
+            { "cls": "ClangTypeToken", "token": "int" },
+            { "cls": "ClangSyntaxToken", "token": " " },
+            { "cls": "ClangVariableToken", "token": "playerID" }
+          ]
+        },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": ")" }
+      ]
+    },
+    { "cls": "ClangBreak", "token": "" },
+    { "cls": "ClangSyntaxToken", "token": "" },
+    { "cls": "ClangBreak", "token": "" },
+    { "cls": "ClangSyntaxToken", "token": "{" },
+    {
+      "cls": "ClangTokenGroup",
+      "nodes": [
+        { "cls": "ClangBreak", "token": "" },
+        {
+          "cls": "ClangStatement",
+          "nodes": [
+            { "cls": "ClangSyntaxToken", "token": "Map" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "::" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "Buildings" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "::" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "BuildingsState" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "::" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangFuncNameToken", "token": "removeSiegeBuildings" },
+            { "cls": "ClangBreak", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "(" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "&" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "DAT_BuildingsState" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "," },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "DAT_GameState" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "." },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangFieldToken", "token": "playerDataArray" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "[" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "playerID" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "]" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "." },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangFieldToken", "token": "currentAttackWave" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "," },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "playerID" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": ")" }
+          ]
+        },
+        { "cls": "ClangBreak", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": ";" },
+        { "cls": "ClangBreak", "token": "" },
+        {
+          "cls": "ClangStatement",
+          "nodes": [
+            {
+              "cls": "ClangFuncNameToken",
+              "token": "disbandAIPlayerSiegeUnits"
+            },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "(" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "&" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "DAT_AICState" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "," },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "playerID" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": ")" }
+          ]
+        },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": ";" },
+        { "cls": "ClangBreak", "token": "" },
+        {
+          "cls": "ClangStatement",
+          "nodes": [
+            { "cls": "ClangFuncNameToken", "token": "addEngineersToTribe" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "(" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "&" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "DAT_AICState" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "," },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "playerID" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": ")" }
+          ]
+        },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": ";" },
+        { "cls": "ClangBreak", "token": "" },
+        {
+          "cls": "ClangStatement",
+          "nodes": [
+            { "cls": "ClangFuncNameToken", "token": "redirectTunnelersUnk" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "(" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "&" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "DAT_AICState" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "," },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "playerID" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": ")" }
+          ]
+        },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": ";" },
+        { "cls": "ClangBreak", "token": "" },
+        {
+          "cls": "ClangStatement",
+          "nodes": [
+            { "cls": "ClangVariableToken", "token": "DAT_GameState" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "." },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangFieldToken", "token": "playerDataArray" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "[" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangVariableToken", "token": "playerID" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangSyntaxToken", "token": "]" },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangOpToken", "token": "." },
+            { "cls": "ClangSyntaxToken", "token": "" },
+            { "cls": "ClangFieldToken", "token": "aiPlayerState" },
+            { "cls": "ClangSyntaxToken", "token": " " },
+            { "cls": "ClangOpToken", "token": "=" },
+            { "cls": "ClangSyntaxToken", "token": " " },
+            { "cls": "ClangVariableToken", "token": "0" }
+          ]
+        },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": ";" },
+        { "cls": "ClangBreak", "token": "" },
+        {
+          "cls": "ClangStatement",
+          "nodes": [{ "cls": "ClangOpToken", "token": "return" }]
+        },
+        { "cls": "ClangSyntaxToken", "token": "" },
+        { "cls": "ClangSyntaxToken", "token": ";" }
+      ]
+    },
+    { "cls": "ClangBreak", "token": "" },
+    { "cls": "ClangSyntaxToken", "token": "}" },
+    { "cls": "ClangBreak", "token": "" },
+    { "cls": "ClangSyntaxToken", "token": "" }
+  ]
+}
