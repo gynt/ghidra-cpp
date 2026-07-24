@@ -147,11 +147,11 @@ class Tokenizer(object):
       return None
     return self._tokens[self._index + n]
   
-  def peek_until(self, predicate = lambda x: False, inclusive_return = False):
+  def peek_until(self, predicate = lambda x: False, inclusive_return = False, include_current = False):
     peek_result = []
     if not self.has_next():
       return peek_result
-    for i in range(self._index + 1, len(self._tokens), 1):
+    for i in range(self._index + (1 if not include_current else 0), len(self._tokens), 1):
       peek_token = self._tokens[i]
       if predicate(peek_token):
         if inclusive_return:
@@ -176,6 +176,9 @@ class Tokenizer(object):
   def advance_multiple(self, n = 1, no_exception = False):
     return [self.next(no_exception = no_exception) for i in range(n)]
   
+  def remaining(self):
+    return (len(self._tokens)-1) - self._index
+
   def advance_until(self, predicate = lambda x: False, inclusive_return = False):
     """
     @param including bool only affects whether it is included in the result or not, not whether the advance actually includes it...

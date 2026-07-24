@@ -5,10 +5,10 @@ from typing import Dict, List, Set
 
 from .tokenizer import Tokenizer
 
-from ghidra.app.decompiler import ClangFieldToken, ClangFuncNameToken, ClangOpToken, ClangTypeToken, ClangVariableToken, DecompileResults
+from ghidra.app.decompiler import ClangCaseToken, ClangFieldToken, ClangFuncNameToken, ClangOpToken, ClangTypeToken, ClangVariableToken, DecompileResults
 from ghidra.program.model.pcode import EquateSymbol, HighConstant, HighFunction
 from ghidra.program.model.listing import Function
-from ghidra.program.model.data import DataType, TypeDef, Pointer, Enum
+from ghidra.program.model.data import Array, DataType, Structure, TypeDef, Pointer, Enum
 
 def joinit(iterable, delimiter):
     try:
@@ -49,6 +49,7 @@ class FunctionRewriter(object):
             odt = bdt.getDataType()
             self.register_datatype(odt, usings=True)
             self._zap_field_for_symbol[symbol.getName()] = odt
+    self._returnType = self._results.getFunction().getReturnType()
 
   def var_path_matches_namespace(self, path: str):
     ns = [el for el in path.split("/") if el]
@@ -130,7 +131,11 @@ class FunctionRewriter(object):
     tok = crt.next()
     dt = tok.getDataType() # type: ignore
     self.register_datatype(dt, usings=True)
-    return [dt.getName()]
+    r = [dt.getName()]
+    while crt.has_next():
+      crt.next()
+      r += self.rewrite_current(crt)
+    return r
 
   def rewrite_ClangFuncProto_ClangVariableDecl(self, cvd: Tokenizer):
     assert cvd.has_next()
@@ -149,7 +154,7 @@ class FunctionRewriter(object):
       tok = cfp.next()
       cc = self._results.getFunction().getCallingConvention().getName()
       if str(tok) == cc or str(tok) == self._namespace[0]:
-        if str(tok) == cc and str(tok) != "__thiscall":
+        if str(tok) == cc and not str(tok).startswith("__thiscall"): # swallows __thiscall_noECXClobber etc.
           r.append(str(tok))
         elif str(tok) == self._namespace[0]:
           # No calling convention specified, inject
@@ -214,7 +219,7 @@ class FunctionRewriter(object):
           return [fn.advance_multiple(4)[-1]]
       else:
         print(f"unexpected function argument: {self._hf.getFunction()}: {fn._tokens}", file=sys.stderr)
-    return fn.advance_multiple(4)[-1]
+    return [fn.advance_multiple(4)[-1]]
   
   def _process_func_args(self, fn: Tokenizer, brace_method: bool = True, brace_depth = 1, arg_types: List[DataType] = []):
     r = []
@@ -267,6 +272,8 @@ class FunctionRewriter(object):
         if str(fn.peek(2)) == ",":
           fn.advance_multiple(2)
           args = self._process_func_args(fn, arg_types=[param.getDataType() for param in func.getParameters() if param.getName() != "this"])
+        elif str(fn.peek(2)) == ")":
+          fn.advance_multiple(2)
         r +=  [
           "MACRO_CALL_MEMBER",
           "(",
@@ -302,6 +309,92 @@ class FunctionRewriter(object):
   def singleton_symbol(self):
     return None
   
+  def sanitize_enum_name(self, n: str):
+    for suffix in ["Int", "Short", "Byte"]:
+      if n.endswith(suffix):
+        return n[:-len(suffix)]
+    return n
+
+  def peek_at_final_datatype(self, t: Tokenizer, no_array_resolving = False):
+    # Tokenizer should be a finite tokens list
+    remaining = t.peek_until(lambda x: False, inclusive_return=True)
+    s = Tokenizer(remaining, start_at_zero=False)
+    last_seen_type = None
+    brace_depth = 0
+    array_depth = 0
+    while s.has_next():
+      cur = s.next()
+      cur_str = str(cur)
+      if cur_str == "(":
+        brace_depth += 1
+      elif cur_str == ")":
+        brace_depth -= 1
+      elif cur_str == "[":
+        array_depth += 1
+      elif cur_str == "]":
+        array_depth -= 1
+      if array_depth == 0 and isinstance(cur, ClangVariableToken):
+        hs = cur.getHighSymbol(self._hf)
+        if hs:
+          dt = hs.getDataType()
+          if dt:
+            last_seen_type = dt
+        else:
+          hv = cur.getHighVariable()
+          if hv:
+            dt = hv.getDataType()
+            if dt:
+              last_seen_type = dt
+      elif array_depth == 0 and isinstance(cur, ClangFieldToken):
+        cdt = cur.getDataType() # container type
+        if isinstance(cdt, Structure):
+          comp = cdt.getComponentAt(cur.getOffset())
+          assert comp.getFieldName() == str(cur)
+          last_seen_type = comp.getDataType()
+        else:
+          hs = cur.getHighSymbol(self._hf)
+          if hs:
+            dt = hs.getDataType()
+            if dt:
+              last_seen_type = dt
+    while isinstance(last_seen_type, Array):
+      last_seen_type = last_seen_type.getDataType()
+    return last_seen_type
+
+  def split_brace_contents(self, t: Tokenizer, separator: str = ",", brace_depth: int = 0):
+    s = Tokenizer(t.peek_until(lambda x: False, inclusive_return=True, include_current=True), start_at_zero=True)
+    if str(s.current()) == "(":
+      brace_depth += 1
+    if brace_depth == 0:
+      raise Exception("won't start alg, brace_depth == 0")
+    array_depth = 0
+    parts = []
+    part = []
+    while brace_depth > 0 and s.has_upcoming_token(lambda x: str(x) == ")", include_current=True):
+      if not s.has_next():
+        raise Exception("unclosed brace")
+      cur = s.next()
+      cur_str = str(cur)
+      if cur_str == "(":
+        brace_depth += 1
+      elif cur_str == ")":
+        brace_depth -= 1
+      elif cur_str == "[":
+        array_depth += 1
+      elif cur_str == "]":
+        array_depth -= 1
+      if brace_depth == 0:
+        parts.append(part.copy())
+        part.clear()
+        return parts
+      if array_depth == 0 and cur_str == separator:
+        parts.append(part.copy())
+        part.clear()
+        # Swallow the separator
+      else:
+        part.append(cur)
+    return parts
+
   def rewrite_function_brace_contents(self, s: Tokenizer, brace_depth: int = 0, arg_types: List[DataType] = []):
     r = []
     if str(s.current()) == "(":
@@ -329,7 +422,14 @@ class FunctionRewriter(object):
       if brace_depth == 0:
         if last_seen_type != expected_type and last_seen_type is not None and expected_type is not None:
           self.register_datatype(expected_type, usings=True)
-          arg_part = [f"({expected_type.getName()})((int)", "("] + arg_part + ["))"]
+          en = expected_type.getName()
+          if isinstance(expected_type, Enum):
+            en = self.sanitize_enum_name(expected_type.getDataTypePath().getDataTypeName())
+          tcast = f"({en})"
+          arg_part_string = "".join(str(a) for a in arg_part)
+          # Remove direct casts to this type as they often fail, instead, cast to int first
+          arg_part_string = arg_part_string.replace(tcast, "")
+          arg_part = [f"{tcast}((int)", "("] + [arg_part_string] + ["))"] # (int) is dubious here!
         r += arg_part
         return r
       
@@ -337,7 +437,11 @@ class FunctionRewriter(object):
         # Assumes commas are proper separators for arguments
         if last_seen_type != expected_type and last_seen_type is not None and expected_type is not None:
           self.register_datatype(expected_type, usings=True)
-          arg_part = [f"({expected_type.getName()})((int)", "("] + arg_part + ["))"]
+          tcast = f"({expected_type.getName()})"
+          arg_part_string = "".join(arg_part)
+          # Remove direct casts to this type as they often fail, instead, cast to int first
+          arg_part_string = arg_part_string.replace(tcast, "")
+          arg_part = [f"{tcast}((int)", "("] + [arg_part_string] + ["))"]
         r += arg_part + [",", " "]
         arg_part.clear()
         arg_i += 1
@@ -356,18 +460,26 @@ class FunctionRewriter(object):
           if dt:
             last_seen_type = dt
       elif array_depth == 0 and isinstance(cur, ClangFieldToken):
-        hs = cur.getHighSymbol(self._hf)
-        if hs:
-          dt = hs.getDataType()
-          if dt:
-            last_seen_type = dt
-      if isinstance(cur, ClangVariableToken):
+        cdt = cur.getDataType() # container type
+        if isinstance(cdt, Structure):
+          comp = cdt.getComponentAt(cur.getOffset())
+          assert comp.getFieldName() == str(cur)
+          last_seen_type = comp.getDataType()
+        else:
+          hs = cur.getHighSymbol(self._hf)
+          if hs:
+            dt = hs.getDataType()
+            if dt:
+              last_seen_type = dt
+      if str(cur) == "&" and s.class_name(s.peek(2)) == "ClangVariableToken":
+        arg_part += self.rewrite_ampersand_var_optional_accessor(s)
+      elif isinstance(cur, ClangVariableToken):
         if self.is_this_variable(cur):
-          r.append("this")
-          s.advance_until(lambda x: s.class_name(x) != "ClangBreak" and str(s) != " ")
-          if str(s.next()) == ".":
-            r.append("->") # substitute . with -> in case of DAT_ to this conversion
-            s.next()
+          arg_part.append("this")
+          if str(s.peek(2)) == ".": #s.advance_until(lambda x: s.class_name(x) != "ClangBreak" and str(s) != " ")
+          #if str(s.next()) == ".":
+            arg_part.append("->") # substitute . with -> in case of DAT_ to this conversion
+            s.advance_multiple(2)
         elif cur.getHighSymbol(self._hf) and cur.getHighSymbol(self._hf).isGlobal():
           arg_part += [f"{cur}::instance"]
         else:
@@ -379,14 +491,22 @@ class FunctionRewriter(object):
   
   def rewrite_ClangStatement(self, s: Tokenizer):
     r = []
-    zap_last_field = False
+    zap_fields = False
     zap_after_data_type: DataType | None = None
+    # expected_rhs_data_type: DataType | None = None
     while s.has_next():
       s.next()
       cur = s.current()
       if str(cur) == "&" and s.class_name(s.peek(2)) == "ClangVariableToken":
         r += self.rewrite_ampersand_var_optional_accessor(s)
       elif s.class_name(cur) == "ClangVariableToken":
+        if zap_after_data_type and isinstance(cur, ClangVariableToken):
+          hs = cur.getHighSymbol(self._hf)
+          if hs:
+            if hs.isGlobal() and s.has_upcoming_token(lambda x: str(x) == "+"):
+              # TODO: this is basically guess work of what the rest of the statement looks like
+              # _ptrCurrentGold = (PlayerData *)(& DAT_GameState::instance.playerDataArray[1] + 0xf);
+              r += ["&"]
         if self.is_this_variable(cur):
           r.append("this")
           if s.has_upcoming_token(lambda x: s.class_name(x) != "ClangBreak" and str(s) != " "):
@@ -397,16 +517,37 @@ class FunctionRewriter(object):
         elif cur.getHighSymbol(self._hf) and cur.getHighSymbol(self._hf).isGlobal():
           r += [f"{cur}::instance"]
         elif str(cur) in self._zap_field_for_symbol:
-          zap_last_field = True
           zap_after_data_type = self._zap_field_for_symbol[str(cur)]
           r += self.rewrite_current(s, context=["ClangStatement"])
+        # elif s.has_upcoming_token(lambda x: str(x) == "="):
+        #   # Assignment statement
+        #   expected_rhs_data_type = cur.getHighSymbol(self._hf).getDataType() if cur.getHighSymbol(self._hf) else None
+        #   if expected_rhs_data_type:
+        #     rhs = self.peek_at_final_datatype(s)
+        #     if rhs:
+        #       if expected_rhs_data_type == rhs:
+        #         # Signals no cast is necessary
+        #         expected_rhs_data_type = None
+        #     else:
+        #       expected_rhs_data_type = None
+        #   r += self.rewrite_current(s, context=["ClangStatement"])
         else:
           r += self.rewrite_current(s, context=["ClangStatement"])
+      elif zap_fields and str(cur) == ".":
+        s.advance_multiple(2) # zap!
+      # elif expected_rhs_data_type and str(cur) == "=":
+      #   r += self.rewrite_current(s, context=["ClangStatement"])
+      #   tn = self.sanitize_enum_name(expected_rhs_data_type.getName())
+      #   cast = f"({tn})"
+      #   if cast not in str(s._tokens) and cast not in ''.join(str(t) for t in s._tokens):
+      #     r += ["(", tn, ")"] # Inject cast
       elif s.has_upcoming_token(
                       predicate=lambda x: s.is_instance(x, "ClangFuncNameToken"),
                       failfast=lambda x: re.match(pattern="([^A-Za-z0-9_:]*)",
                                                       string=str(x)).group(0), # type: ignore
                       include_current=True):
+        if "__security_check_cookie" in str(s._tokens):
+          return []
         # Note this inherits the Tokenizer instead of entering a new situation
         r += self.rewrite_function_namespace(s)
       elif s.class_name(cur) == "ClangOpToken" and str(cur) == "ADJ":
@@ -415,13 +556,37 @@ class FunctionRewriter(object):
         r += self.rewrite_function_brace_contents(s)
         assert str(s.current()) == ")"
         # swallow the ")"
+      elif s.class_name(cur) == "ClangOpToken" and str(cur).startswith("SBORROW"):
+        assert str(s.peek(2)) == "("
+        s.advance_multiple(2)
+        a, b = self.split_brace_contents(s)
+        s.advance_until(lambda x: x == b[-1])
+        s.next()
+        #s.advance_multiple(len(a) + len(b) + 1)
+        r += ["("] + self.rewrite_ClangStatement(Tokenizer(a, start_at_zero=False)) + [" ", "<", " "] + self.rewrite_ClangStatement(Tokenizer(b, start_at_zero=False)) + [")"]
       elif zap_after_data_type and s.has_next(4) and isinstance(s.peek(4), ClangFieldToken):
+        # We are about to do .subfield
         tok = s.peek(4)
         if not isinstance(tok, ClangFieldToken):
           raise Exception()
         if tok.getDataType() == zap_after_data_type:
           r += self.rewrite_current(s, context=["ClangStatement"])
-          s.advance_multiple(4)  
+          if str(s.peek(6)) == "+" and str(s.peek(8) != ""):
+            s.advance_multiple(8) # super  zap:     _ptrCurrentGold = (PlayerData *)(DAT_GameState::instance.playerDataArray[1] + 0xf);
+          else:
+            s.advance_multiple(4)  # zap!
+          zap_fields = True # keep zapping fields!
+        else:
+          r += self.rewrite_current(s, context=["ClangStatement"])
+      elif s.class_name(cur) == "ClangOpToken" and str(cur) == "return" and s.class_name(s.peek(2)) == "ClangVariableToken":
+        expectedReturnType = self._returnType
+        observedReturnType = self.peek_at_final_datatype(s, no_array_resolving=isinstance(expectedReturnType, Array))
+        if expectedReturnType != observedReturnType and expectedReturnType is not None and observedReturnType is not None:
+          r += [cur, "(", expectedReturnType.getName(), ")", "("]
+          r += self.rewrite_ClangStatement(s) # recursion
+          r += [")"]
+        else:
+          r += self.rewrite_current(s, context=["ClangStatement"])
       else:
         r += self.rewrite_current(s, context=["ClangStatement"])
     return r
@@ -439,16 +604,19 @@ class FunctionRewriter(object):
         self.register_enum(dt, str(cvt))
         if hc.getDataType().getName() == "BOOLEnum":
           return [str(cvt)] # TRUE and FALSE can be written as such
-        if re.match("^[0-9]+$", str(cvt)):
-          # cast const enums to enum type
-          return ["(", "(", dt.getDataTypePath().getDataTypeName(), ")", str(cvt), ")"]
-        dtp = dt.getCategoryPath().getPath()
-        dtns = dtp[1:].replace("/", "::")
-        return [f'{dtns}::{str(cvt)}']
+        return self.properly_name_enum(dt, cvt)
     # if str(cvt) == "'\\0'":
     #   return [str(0)] # convert uchar and char 0's into proper decimal 0's
     return [str(cvt)]
   
+  def properly_name_enum(self, dt: Enum, cvt: ClangVariableToken | ClangCaseToken):
+    if re.match("^[0-9]+$", str(cvt)) or re.match("^0x[0-9]+$", str(cvt)):
+      # cast const enums to enum type
+      return ["(", "(", self.sanitize_enum_name(dt.getDataTypePath().getDataTypeName()), ")", str(cvt), ")"]
+    dtp = dt.getCategoryPath().getPath()
+    dtns = dtp[1:].replace("/", "::")
+    return [f'{dtns}::{str(cvt)}']
+
   def rewrite_ClangOpToken(self, tok: ClangOpToken):
     return [str(tok)]
 
@@ -470,7 +638,7 @@ class FunctionRewriter(object):
     if str(accessor) == ".":
       if isGlobal:
         if self.is_this_variable(var):
-          r += [cur, "this", accessor]
+          r += [cur, "this", "->"]
         else:
           r += [cur, var, "::instance", accessor]
       else:
@@ -487,6 +655,20 @@ class FunctionRewriter(object):
       s.advance_multiple(2)
     return r
   
+  def rewrite_ClangCaseToken(self, t: ClangCaseToken):
+    dt: DataType | None = None
+    hs = t.getHighSymbol(self._hf)
+    if not hs:
+      hv = t.getHighVariable()
+      if hv:
+        dt = hv.getDataType()
+    else:
+      dt = hs.getDataType()
+    if dt:
+      if isinstance(dt, Enum):
+        return self.properly_name_enum(dt, t)
+    return [str(t)]
+
   def rewrite_ClangTokenGroup(self, s: Tokenizer):
     s.reset(False)
     r = []

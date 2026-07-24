@@ -40,7 +40,7 @@ def main():
   elif args.namespace:
     odir = pathlib.Path(args.namespace_output_dir or ".")
     fm = rewrite_function.currentProgram.getFunctionManager()
-    known_functions = [('::'.join(f.getPathList(True)[:-1]).replace(*args.namespace_replace.split("|")), f,) for f in fm.getFunctions(True)]
+    known_functions = [('::'.join(str(ff) for ff in f.getPathList(True)[:-1]).replace(*args.namespace_replace.split("|")), f,) for f in fm.getFunctions(True)]
     for pns, f in known_functions:
       if pns == args.namespace:
         name = f.getName()
