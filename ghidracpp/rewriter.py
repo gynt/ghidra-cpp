@@ -227,7 +227,7 @@ class FunctionRewriter(object):
         fn.next()
       return r
 
-    r += self.rewrite_brace_contents(fn, brace_depth=brace_depth, arg_types=arg_types)
+    r += self.rewrite_function_brace_contents(fn, brace_depth=brace_depth, arg_types=arg_types)
     return r
 
   def rewrite_function_namespace(self, fn: Tokenizer):
@@ -302,7 +302,7 @@ class FunctionRewriter(object):
   def singleton_symbol(self):
     return None
   
-  def rewrite_brace_contents(self, s: Tokenizer, brace_depth: int = 0, arg_types: List[DataType] = []):
+  def rewrite_function_brace_contents(self, s: Tokenizer, brace_depth: int = 0, arg_types: List[DataType] = []):
     r = []
     if str(s.current()) == "(":
       brace_depth += 1
@@ -329,7 +329,7 @@ class FunctionRewriter(object):
       if brace_depth == 0:
         if last_seen_type != expected_type and last_seen_type is not None and expected_type is not None:
           self.register_datatype(expected_type, usings=True)
-          arg_part = [f"static_cast<{expected_type.getName()}>", "("] + arg_part + [")"]
+          arg_part = [f"({expected_type.getName()})((int)", "("] + arg_part + ["))"]
         r += arg_part
         return r
       
@@ -337,7 +337,7 @@ class FunctionRewriter(object):
         # Assumes commas are proper separators for arguments
         if last_seen_type != expected_type and last_seen_type is not None and expected_type is not None:
           self.register_datatype(expected_type, usings=True)
-          arg_part = [f"static_cast<{expected_type.getName()}>", "("] + arg_part + [")"]
+          arg_part = [f"({expected_type.getName()})((int)", "("] + arg_part + ["))"]
         r += arg_part + [",", " "]
         arg_part.clear()
         arg_i += 1
@@ -384,7 +384,9 @@ class FunctionRewriter(object):
     while s.has_next():
       s.next()
       cur = s.current()
-      if s.class_name(cur) == "ClangVariableToken":
+      if str(cur) == "&" and s.class_name(s.peek(2)) == "ClangVariableToken":
+        r += self.rewrite_ampersand_var_optional_accessor(s)
+      elif s.class_name(cur) == "ClangVariableToken":
         if self.is_this_variable(cur):
           r.append("this")
           if s.has_upcoming_token(lambda x: s.class_name(x) != "ClangBreak" and str(s) != " "):
@@ -410,7 +412,7 @@ class FunctionRewriter(object):
       elif s.class_name(cur) == "ClangOpToken" and str(cur) == "ADJ":
         assert str(s.peek(2)) == "("
         s.advance_multiple(2)
-        r += self.rewrite_brace_contents(s)
+        r += self.rewrite_function_brace_contents(s)
         assert str(s.current()) == ")"
         # swallow the ")"
       elif zap_after_data_type and s.has_next(4) and isinstance(s.peek(4), ClangFieldToken):
@@ -436,12 +438,15 @@ class FunctionRewriter(object):
       if isinstance(dt, Enum):
         self.register_enum(dt, str(cvt))
         if hc.getDataType().getName() == "BOOLEnum":
-          return [str(cvt)] # TRUE and FALSE can be written as such    
+          return [str(cvt)] # TRUE and FALSE can be written as such
+        if re.match("^[0-9]+$", str(cvt)):
+          # cast const enums to enum type
+          return ["(", "(", dt.getDataTypePath().getDataTypeName(), ")", str(cvt), ")"]
         dtp = dt.getCategoryPath().getPath()
         dtns = dtp[1:].replace("/", "::")
         return [f'{dtns}::{str(cvt)}']
-    if str(cvt) == "'\\0'":
-      return [str(0)] # convert uchar and char 0's into proper decimal 0's
+    # if str(cvt) == "'\\0'":
+    #   return [str(0)] # convert uchar and char 0's into proper decimal 0's
     return [str(cvt)]
   
   def rewrite_ClangOpToken(self, tok: ClangOpToken):
@@ -450,13 +455,47 @@ class FunctionRewriter(object):
   def rewrite_ClangBreak(self):
     return ["\n"]
   
+  def rewrite_ampersand_var_optional_accessor(self, s: Tokenizer):
+    # "&DAT_global." and &DAT_global +" and "&DAT_global,"
+    r = []
+    cur = s.current()
+    assert str(cur) == "&"
+    assert s.class_name(s.peek(2)) == "ClangVariableToken"
+    var = s.peek(2)
+    assert isinstance(var, ClangVariableToken)
+
+    hs = var.getHighSymbol(self._hf)
+    isGlobal = hs and hs.isGlobal()
+    accessor = s.peek(4)
+    if str(accessor) == ".":
+      if isGlobal:
+        if self.is_this_variable(var):
+          r += [cur, "this", accessor]
+        else:
+          r += [cur, var, "::instance", accessor]
+      else:
+        r += [cur, var, accessor]
+      s.advance_multiple(4)
+    else:  
+      if isGlobal:
+        if self.is_this_variable(var):
+          r += ["this"]
+        else:
+          r += [var, "::ptr"]
+      else:
+        r += [cur, var]
+      s.advance_multiple(2)
+    return r
+  
   def rewrite_ClangTokenGroup(self, s: Tokenizer):
     s.reset(False)
     r = []
     while s.has_next():
       s.next()
       cur = s.current()
-      if s.class_name(cur) == "ClangVariableToken":
+      if str(cur) == "&" and s.class_name(s.peek(2)) == "ClangVariableToken":
+        r += self.rewrite_ampersand_var_optional_accessor(s)
+      elif s.class_name(cur) == "ClangVariableToken":
         if self.is_this_variable(cur):
           r.append("this")
           s.advance_until(lambda x: s.class_name(x) != "ClangBreak" and str(s) != " ")
@@ -486,7 +525,7 @@ class FunctionRewriter(object):
       r += self.rewrite_ClangBreak()
     elif n == "ClangOpToken" and str(cur) == "ADJ":
       s.advance_multiple(2) # Swallow ADJ, insert contents between ()
-      r += self.rewrite_brace_contents(s)
+      r += self.rewrite_function_brace_contents(s)
     elif hasattr(self, needle):
       if isinstance(cur, Iterable):
         r += getattr(self, needle)(s.enter(False))

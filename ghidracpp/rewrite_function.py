@@ -58,6 +58,9 @@ def initialize_ghidra_from_gzf(gzfPath: str = "Stronghold Crusader.exe.gzf"):
 def getCurrentProgram():
   return currentProgram
 
+def getFlatAPI():
+  return flat_api
+
 def do_atexit():
   try:
     currentProgram.release(project) # type: ignore
