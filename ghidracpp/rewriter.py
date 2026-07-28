@@ -349,7 +349,8 @@ class FunctionRewriter(object):
         cdt = cur.getDataType() # container type
         if isinstance(cdt, Structure):
           comp = cdt.getComponentAt(cur.getOffset())
-          assert comp.getFieldName() == str(cur)
+          fn = comp.getFieldName() or comp.getDefaultFieldName()
+          assert fn == str(cur)
           last_seen_type = comp.getDataType()
         else:
           hs = cur.getHighSymbol(self._hf)
@@ -463,7 +464,8 @@ class FunctionRewriter(object):
         cdt = cur.getDataType() # container type
         if isinstance(cdt, Structure):
           comp = cdt.getComponentAt(cur.getOffset())
-          assert comp.getFieldName() == str(cur)
+          fn = comp.getFieldName() or comp.getDefaultFieldName()
+          assert fn == str(cur)
           last_seen_type = comp.getDataType()
         else:
           hs = cur.getHighSymbol(self._hf)
