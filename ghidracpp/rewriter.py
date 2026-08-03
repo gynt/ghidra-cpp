@@ -1,13 +1,13 @@
 from collections.abc import Iterable
 import re
 import sys
-from typing import Dict, List, Set
+from typing import Callable, Dict, List, Set
 
 from .tokenizer import Tokenizer
 
 from ghidra.app.decompiler import ClangCaseToken, ClangFieldToken, ClangFuncNameToken, ClangOpToken, ClangTypeToken, ClangVariableToken, DecompileResults
 from ghidra.program.model.pcode import EquateSymbol, HighConstant, HighFunction
-from ghidra.program.model.listing import Function
+from ghidra.program.model.listing import Function, Library
 from ghidra.program.model.data import Array, DataType, Structure, TypeDef, Pointer, Enum
 
 def joinit(iterable, delimiter):
@@ -22,7 +22,11 @@ def joinit(iterable, delimiter):
 
 class FunctionRewriter(object):
 
-  def __init__(self, results: DecompileResults) -> None:
+  def __init__(self,
+               results: DecompileResults,
+               root_namespace: str = "",
+               globals_location: str = "",
+               post_processor: Callable[[str], str] = (lambda x: x)) -> None:
     self._results = results
     self._hf: HighFunction = results.getHighFunction()
     self._namespace = list(str(n) for n in self._results.getFunction().getParentNamespace().getPathList(True))
@@ -30,8 +34,16 @@ class FunctionRewriter(object):
     self._namespace_type = self._results.getFunction().getParentNamespace().getType().name()
     self._global_symbols = dict((s.getName(), s) for s in self._hf.getGlobalSymbolMap().getSymbols())
     self._includes = [f'/{"/".join(self._namespace)}.func'] #.func by default
+    self._lib_includes = []
     self._usings = []
     self._program = self._hf.getDataTypeManager().getProgram()
+    rns = '/'
+    pls = self._hf.getFunction().getParentNamespace().getPathList(True)
+    if pls:
+      rns = f"/{pls[0]}"
+    self._root_namespace = root_namespace or rns
+    self._globals_location = globals_location or self._root_namespace
+    self._post_processor = post_processor
     # Entity * 40 psVar1;
     # psVar1 = &this->entityArray[1].logicalState;
     # Should become:
@@ -68,7 +80,7 @@ class FunctionRewriter(object):
   def register_datatype(self, dt, usings = False, ignore_simple: bool = True):
     include = str(dt.getDataTypePath())
     if ignore_simple:
-      if not include.startswith("/_HoldStrong"):
+      if not include.startswith(self._root_namespace):
         return
     if not include in self._includes:
       self._includes.append(include)
@@ -258,13 +270,26 @@ class FunctionRewriter(object):
       func: Function = self._program.getFunctionManager().getFunctionAt(target_address)
       pns = func.getParentNamespace()
       pl = list(pns.getPathList(True))
-      pli = [str(n) for n in pl[:-1]] + [f"{pl[-1]}.func"]
-      inc = f"/{'/'.join(pli)}"
-      if inc not in self._includes:
-        self._includes.append(inc)
-      plf = [str(n) for n in pl[:-1]] + [f"{pl[-1]}_Func"]
-      pl_func = "::".join(plf) # type: ignore
-      pl_func += "::" + func.getName()
+      if pl:
+        pli = [str(n) for n in pl[:-1]] + [f"{pl[-1]}.func"]
+        inc = f"/{'/'.join(pli)}"
+        if inc not in self._includes:
+          self._includes.append(inc)
+        plf = [str(n) for n in pl[:-1]] + [f"{pl[-1]}_Func"]
+        pl_func = "::".join(plf) # type: ignore
+        pl_func += "::" + func.getName()
+      else:
+        if isinstance(pns, Library):
+          ## TODO: not always the right include from ghidra...
+          # libsym = pns.getSymbol().toString().lower()
+          # while libsym.endswith(".dll"):
+          #   libsym = libsym[:(len(".dll"))]
+          # inc = f"{libsym}.h"
+          # if inc not in self._lib_includes:
+          #   self._lib_includes.append(inc) # append foobar.h to the includes
+          pl_func = func.getName()
+        else:
+          pl_func = func.getName()
       if pns.getType().name() == "CLASS":
         first = self._process_first_method_argument(fn)
         args = []
@@ -752,9 +777,10 @@ class FunctionRewriter(object):
         if indentation:
           pr.append(" " * indentation)
     includes = "\n".join(f'#include "{str(incl)[1:]}.hpp"' for incl in self._includes)
+    lib_includes = "\n".join(f'#include "{incl}"' for incl in self._lib_includes)
     wrapper_open = "\n".join(f"namespace {ns} {{" for ns in self._wrapping_namespace)
     wrapper_close = "\n".join(f"}}" for ns in self._wrapping_namespace)
     usings = "\n".join(f'using {"::".join(str(u)[1:].split("/"))};' for u in self._usings)
-    global_vars = "\n".join(f'#include "OpenSHC/Globals/{n}.hpp"' for n, s in self._global_symbols.items() if not self.var_path_matches_namespace(str(s.getDataType().getDataTypePath())))
+    global_vars = "\n".join(f'#include "{self._globals_location}/{n}.hpp"' for n, s in self._global_symbols.items() if not self.var_path_matches_namespace(str(s.getDataType().getDataTypePath())))
     
-    return f"{includes}\n\n{global_vars}\n\n{wrapper_open}\n\n{usings}\n\n{''.join(str(c) for c in pr)}\n\n{wrapper_close}".replace("_HoldStrong", "OpenSHC")
+    return self._post_processor(f"{includes}\n\n{lib_includes}\n\n{global_vars}\n\n{wrapper_open}\n\n{usings}\n\n{''.join(str(c) for c in pr)}\n\n{wrapper_close}")

@@ -94,29 +94,29 @@ def decompile(func: Function, style = "decompile"):
 
   return results
 
-def rewrite(func: Function):
+def rewrite(func: Function, **kwargs):
   r = decompile(func, "decompile")
-  fw = FunctionRewriter(r)
+  fw = FunctionRewriter(results=r, **kwargs)
   fnew = fw.rewrite_function(Tokenizer(r.getCCodeMarkup()))
 
   ps = subprocess.Popen(["clang-format"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
   fnew_formatted = ps.communicate(fnew)[0]
   return fnew_formatted
 
-def rewrite_function(function: str | Function):
+def rewrite_function(function: str | Function, **kwargs):
   if isinstance(function, Function):
-    return rewrite(func=function)
+    return rewrite(func=function, **kwargs)
   if "::" in function:
     for f in currentProgram.getFunctionManager().getFunctions(True):
       key = f"{'::'.join(str(p) for p in f.getPathList(True))}".replace("_HoldStrong", "OpenSHC")
       if key == function:
-        return rewrite(f)
+        return rewrite(f, **kwargs)
     else:
       raise Exception(f"could not find function: {function}")
   else:
     try:
       addr = int(function, 16)
       func = currentProgram.getFunctionManager().getFunctionAt(flat_api.toAddr(addr))
-      return rewrite(func)
+      return rewrite(func, **kwargs)
     except ValueError:
       raise Exception("invalid hex address: {function}")
