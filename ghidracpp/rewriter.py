@@ -464,7 +464,7 @@ class FunctionRewriter(object):
         if last_seen_type != expected_type and last_seen_type is not None and expected_type is not None:
           self.register_datatype(expected_type, usings=True)
           tcast = f"({expected_type.getName()})"
-          arg_part_string = "".join(arg_part)
+          arg_part_string = "".join(str(a) for a in arg_part)
           # Remove direct casts to this type as they often fail, instead, cast to int first
           arg_part_string = arg_part_string.replace(tcast, "")
           arg_part = [f"{tcast}((int)", "("] + [arg_part_string] + ["))"]
