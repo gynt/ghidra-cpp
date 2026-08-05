@@ -42,7 +42,7 @@ class FunctionRewriter(object):
     if pls:
       rns = f"/{pls[0]}"
     self._root_namespace = root_namespace or rns
-    self._globals_location = globals_location or self._root_namespace
+    self._globals_location = globals_location or f"{self._root_namespace}/Globals"
     self._post_processor = post_processor
     # Entity * 40 psVar1;
     # psVar1 = &this->entityArray[1].logicalState;
