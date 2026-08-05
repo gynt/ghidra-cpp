@@ -229,8 +229,12 @@ class FunctionRewriter(object):
         hs = tok.getHighSymbol(self._hf)
         if not hs.isGlobal():
           return [fn.advance_multiple(4)[-1]]
+      elif str(tok) == "(":
+        print(f"unexpected 'this' argument, likely a cast: {self._hf.getFunction()}: {fn._tokens}", file=sys.stderr)
       else:
-        print(f"unexpected function argument: {self._hf.getFunction()}: {fn._tokens}", file=sys.stderr)
+        errstr = f"unexpected 'this' argument, make sure to check it out: {self._hf.getFunction()}: {fn._tokens}"
+        print(errstr, file=sys.stderr)
+        raise Exception(errstr)
     return [fn.advance_multiple(4)[-1]]
   
   def _process_func_args(self, fn: Tokenizer, brace_method: bool = True, brace_depth = 1, arg_types: List[DataType] = []):

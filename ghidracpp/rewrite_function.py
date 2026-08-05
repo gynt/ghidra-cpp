@@ -99,9 +99,7 @@ def rewrite(func: Function, **kwargs):
   fw = FunctionRewriter(results=r, **kwargs)
   fnew = fw.rewrite_function(Tokenizer(r.getCCodeMarkup()))
 
-  ps = subprocess.Popen(["clang-format"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="UTF-8")
-  fnew_formatted = ps.communicate(fnew)[0]
-  return fnew_formatted
+  return fnew
 
 def rewrite_function(function: str | Function, **kwargs):
   if isinstance(function, Function):
